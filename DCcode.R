@@ -15,15 +15,17 @@ library(MASS)
 library(blme)
 library(party)
 library(survey)
+library(maps)
+library(ggmap)
 
 setwd("C://Users//Sheryl//Documents//Housing Segregation")
-#CityData <- read.csv("St.Louis.csv")
+
 CityData <- read.csv("DC.csv")
 
-#CountyData <- read.csv("KentuckyCountiesSS.csv")
+CountyData <- read.csv("DCSameSexPopulation.csv")
 
-#CityData <- join(CityData, CountyData, by = c("county_name", "as_of_year"))
-                  
+CityData <- join(CityData, CountyData, by = "county_name")
+
 
 ## Dichotomizing Action Taken and Loan Type
 CityData$di_action <- ifelse(CityData$action_taken == 1, 1, 0) 
@@ -111,33 +113,6 @@ X1$fair_law[X1$state_abbr == "DC"] <- 1
 X1$fair_law[X1$state_abbr == "MD"] <- 1
 X1$fair_law[X1$county_name == "Alexandria city"] <- 1
 
-# Dummy variable for anti-discrimination law present in St. Louis
-
-X1$fair_law <- 0
-X1$fair_law[X1$state_abbr == "IL"] <- 1
-X1$fair_law[X1$county_name == "St. Louis County"] <- 1
-
-# Dummy variable for anti-discrimination law present in Kentucky
-
-X1$fair_law <- 0
-X1$fair_law[X1$county_name == "Jefferson County"] <- 1
-X1$fair_law[X1$county_name == "Fayette County"] <- 1
-
-# Covington
-X1$fair_law[X1$census_tract_number %in% c(603, 607, 609, 610, 611, 612, 613, 614, 616, 
-                                          636.06, 638, 648, 649, 650, 651, 652, 653, 
-                                          655.02, 668, 669, 670, 671)] <- 1 
-# Danville
-X1$fair_law[X1$census_tract_number %in% c(9301, 9302, 9303, 9304, 9305, 9306, 9307,
-                                          9201.01, 9201.02, 9201.03, 9202, 9203, 9204)] <- 1
-# Frankfort
-X1$fair_law[X1$census_tract_number %in% c(701, 704.01, 704.02, 705, 706, 707.01, 707.02,
-                                          708, 711, 712)] <- 1
-# Morehead
-X1$fair_law[X1$census_tract_number %in% c(9501, 9502, 9503)] <- 1
-# Vicco
-X1$fair_law[X1$census_tract_number %in% c(9605, 9707)] <- 1
-
 # Descriptive Stats
 
 X.ss <- X1[X1$four_couple_name == "Same Sex Couple",]
@@ -170,20 +145,8 @@ table(X.single$di_action_name)
 table(X.other$di_action_name)
 
 
-# Plots
+### REGRESSIONS
 
-
-#Interactive Plots
-
-int.plot <- gvisLineChart(X2, "tract_to_msamd_income", "minority_population",
-                          options = list(width = 1000, height = 400, isStacked=TRUE,
-                                         gvis.editor = "Edit me!"))
-plot(int.plot)
-
-## Couple Regression
-
-couple.amt.dep <- lm(log_amount ~ log_income + minority_population +
-                       tract_to_msamd_income + four_couple_name, data = X1)
 
 # Proportionally Sample
 
@@ -202,19 +165,17 @@ X1.sample <- X1[weighted, ] # Produces sample which has same couple proportions 
 couple.orig.dep <- glm(di_action ~ log_income + log_amount + minority_population +
                          tract_to_msamd_income + four_couple_name + fair_law +
                          di_loan + as.factor(county_name) + as.factor(as_of_year), 
-                       data = X1.sample, family = "binomial")
+                       data = X1, family = "binomial")
 
 htmlreg(couple.orig.dep, file = "MainModelDC.doc")
-htmlreg(couple.orig.dep, file = "MainModelStL.doc")
 
 # More couple level model
 more.couple.orig.dep <- glm(di_action ~ log_income + log_amount + minority_population +
-                         tract_to_msamd_income + couple_name + fair_law +
-                         di_loan + as.factor(county_name) + as.factor(as_of_year), 
-                       data = X1.sample, family = "binomial")
+                              tract_to_msamd_income + couple_name + fair_law +
+                              di_loan + as.factor(county_name) + as.factor(as_of_year), 
+                            data = X1, family = "binomial")
 
 htmlreg(more.couple.orig.dep, file = "MoreCoupleDC.doc")
-htmlreg(more.couple.orig.dep, file = "MoreCoupleStL.doc")
 
 # Hierarchical Model
 hier.orig.dep <- bglmer(di_action ~ log_income + log_amount + minority_population +
@@ -225,15 +186,14 @@ hier.orig.dep <- bglmer(di_action ~ log_income + log_amount + minority_populatio
 summary(hier.orig.dep)
 htmlreg(hier.orig.dep, file = "DC.Hier.doc")
 htmlreg(hier.orig.dep, file = "StL.Hier.doc")
-# hierarchical model isn't different from fixed effects model
-# Hierarchical model is different for D.C. and St. Louis -- fair law no longer significant
+# Hierarchical model is different for D.C. 
 
 # Predicted Probability
 
 X.c.ss <- cbind(1, median(X1.sample$log_income, na.rm = TRUE), median(X1.sample$log_amount, na.rm = TRUE), 
                 median(X1.sample$minority_population, na.rm = TRUE), 
                 median(X1.sample$tract_to_msamd_income, na.rm = TRUE), 0, 1, 0, 1, 1)
-                
+
 X.c.single <- cbind(1, median(X1.sample$log_income, na.rm = TRUE), median(X1.sample$log_amount, na.rm = TRUE), 
                     median(X1.sample$minority_population, na.rm = TRUE),
                     median(X1.sample$tract_to_msamd_income, na.rm = TRUE), 0, 0, 1, 1, 1)
@@ -248,10 +208,6 @@ hetero.prob <- plogis(X.c.hetero%*%couple.orig.dep$coefficients[1:10])
 
 # For D.C. 
 beta.tilde <- mvrnorm(1000, couple.orig.dep$coefficients[c(1:28,30:35)], vcov(couple.orig.dep))
-beta.tilde <- beta.tilde[,1:10]
-
-# For Kentucky
-beta.tilde <- mvrnorm(1000, couple.orig.dep$coefficients, vcov(couple.orig.dep))
 beta.tilde <- beta.tilde[,1:10]
 
 ci.ss <- numeric(1000)
@@ -306,23 +262,8 @@ CrossTable(X2$four_couple_name, X2$di_action_name)
 CrossTable(XSS$di_loan_name, XSS$di_action_name)
 CrossTable(XHC$di_loan_name, XHC$di_action_name)
 
+### Maps ###
 
-# Impute Missing Data
-# Reduce Data set
-reduced.X1 <- X1[,c(1, 19, 20, 23, 38, 39, 75, 78, 79, 80, 81, 82, 83, 84, 85, 86)]
-a.out <- amelia(reduced.X1, m = 5, idvars = c("applicant_sex_name", "county_name",
-                                                    "di_action_name", "di_loan_name",
-                                                    "race"))
-imp1 <- a.out$imputations[[1]]
+DCarea <- get_map("Washington D.C.", zoom = 10, maptype = "roadmap")
+ggmap(DCarea)
 
-# Matching
-diff.1 <- mean(training$di_action[training$di_action == 1]) - mean(training$action_taken[training$di_action != 1])
-se.1 <- wilcox.exact(training$di_action[training$di_action == 1], training$action_taken[training$di_action != 1], conf.int = TRUE)
-
-m.out <- matchit(di_action ~ race + log_income + log_amount + tract_to_msamd_income + minority_population, method = "genetic", data = imp1)
-m.data <- match.data(m.out)
-
-diff.2 <- mean(m.data$di_action[m.data$di_action == 1]) - mean(m.data$di_action[m.data$di_action != 1])
-se.2 <- wilcox.exact(m.data$di_action[m.data$di_action == 1], m.data$di_action[m.data$di_action != 1], conf.int = TRUE)
-
-# Will have to multiply impute applicant incomes to get complete data first
