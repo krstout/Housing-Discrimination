@@ -17,6 +17,7 @@ library(party)
 library(survey)
 library(maps)
 library(ggmap)
+library(pcse)
 
 setwd("C://Users//Sheryl//Documents//Housing Segregation")
 
@@ -46,7 +47,8 @@ CityData$couple[CityData$applicant_sex == 1 & CityData$co_applicant_sex == 2] <-
 CityData$couple[CityData$applicant_sex == 2 & CityData$co_applicant_sex == 1] <- 4 # Female Lead
 CityData$couple[CityData$applicant_sex == 1 & CityData$co_applicant_sex == 1] <- 5 # Male Couple
 CityData$couple[CityData$applicant_sex == 2 & CityData$co_applicant_sex == 2] <- 6 # Female Couple
-CityData$couple[CityData$applicant_sex == 3 | CityData$applicant_sex == 4] <- 7 # Other
+CityData$couple[CityData$applicant_sex == 3] <- 7 # Other
+CityData$couple[CityData$applicant_sex == 4] <- 8 # Not Applicable
 
 CityData$couple_name[CityData$couple == 1] <- "Single Male"
 CityData$couple_name[CityData$couple == 2] <- "Single Female"
@@ -55,6 +57,7 @@ CityData$couple_name[CityData$couple == 4] <- "Female Lead"
 CityData$couple_name[CityData$couple == 5] <- "Male Couple"
 CityData$couple_name[CityData$couple == 6] <- "Female Couple"
 CityData$couple_name[CityData$couple == 7] <- "Other"
+CityData$couple_name[CityData$couple == 8] <- "Not Applicable"
 
 # Four Couple Groups
 CityData$four_couple[CityData$applicant_sex == 1 & CityData$co_applicant_sex == 5] <- 1 # Single 
@@ -63,7 +66,8 @@ CityData$four_couple[CityData$applicant_sex == 1 & CityData$co_applicant_sex == 
 CityData$four_couple[CityData$applicant_sex == 2 & CityData$co_applicant_sex == 1] <- 2 # Hetero Couple
 CityData$four_couple[CityData$applicant_sex == 1 & CityData$co_applicant_sex == 1] <- 3 # Same Sex Couple
 CityData$four_couple[CityData$applicant_sex == 2 & CityData$co_applicant_sex == 2] <- 3 # Same Sex Couple
-CityData$four_couple[CityData$applicant_sex == 3 | CityData$applicant_sex == 4] <- 4 # Other
+CityData$four_couple[CityData$applicant_sex == 3] <- 4 # Other
+CityData$four_couple[CityData$applicant_sex == 4] <- 5 # Not Applicable
 
 CityData$four_couple_name[CityData$four_couple == 1] <- "Single"
 CityData$four_couple_name[CityData$four_couple == 1] <- "Single"
@@ -72,11 +76,16 @@ CityData$four_couple_name[CityData$four_couple == 2] <- "Hetero Couple"
 CityData$four_couple_name[CityData$four_couple == 3] <- "Same Sex Couple"
 CityData$four_couple_name[CityData$four_couple == 3] <- "Same Sex Couple"
 CityData$four_couple_name[CityData$four_couple == 4] <- "Other"
+CityData$four_couple_name[CityData$four_couple == 5] <- "Not Applicable"
 
 ## Subsetting Data by Action
 X1 <- CityData[CityData$action_taken == 1 | CityData$action_taken == 2 | 
                  CityData$action_taken == 3 | CityData$action_taken == 4 | 
                  CityData$action_taken == 5,]
+
+## Throw out Not Applicable couples, which aren't actual people or are loan purchases by bank
+X1 <- X1[X1$couple == 1 | X1$couple == 2 | X1$couple == 3 | X1$couple == 4 | X1$couple == 5 | 
+           X1$couple == 6 | X1$couple == 7,]
 
 # Omit NA couple_name
 X1 <- X1[complete.cases(X1[,c("couple", "four_couple")]),]
@@ -163,11 +172,23 @@ X1.sample <- X1[weighted, ] # Produces sample which has same couple proportions 
 
 # Main model
 couple.orig.dep <- glm(di_action ~ log_income + log_amount + minority_population +
-                         tract_to_msamd_income + four_couple_name + fair_law +
-                         di_loan + as.factor(county_name) + as.factor(as_of_year), 
+                         tract_to_msamd_income + fair_law + di_loan + Percent.Same.Sex +
+                         four_couple_name, 
                        data = X1, family = "binomial")
 
-htmlreg(couple.orig.dep, file = "MainModelDC.doc")
+four.couple.orig.dep <- glm(di_action ~ log_income + log_amount + minority_population +
+                         tract_to_msamd_income + fair_law + di_loan + Percent.Same.Sex +
+                         couple_name, 
+                       data = X1, family = "binomial")
+
+couple.int <- glm(di_action ~ log_income + log_amount + minority_population +
+                         tract_to_msamd_income + fair_law + di_loan + Percent.Same.Sex +
+                         couple_name + couple_name*fair_law*Percent.Same.Sex,
+                       data = X1, family = "binomial")
+
+#pcse.couple <- pcse(couple.orig.dep, groupN = X1$county_name, groupT = X1$as_of_year)
+
+htmlreg(l = list(couple.orig.dep, four.couple.orig.dep, couple.int), file = "MainModelDC.doc", digits = 3)
 
 # More couple level model
 more.couple.orig.dep <- glm(di_action ~ log_income + log_amount + minority_population +
