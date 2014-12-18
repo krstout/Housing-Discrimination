@@ -20,13 +20,13 @@ library(ggmap)
 library(pcse)
 
 #setwd("C://Users//Sheryl//Documents//Housing Segregation")
-setwd("C:\\Users\\Kevin\\Documents\\Housing Segregation")
+setwd("C://Users//Kevin//Documents//Housing Segregation")
 
-CityData <- read.csv("DC.csv")
+CityData <- read.csv("Delaware.csv")
 
-CountyData <- read.csv("DCSameSexPopulation.csv")
+#CountyData <- read.csv("DESameSexPopulation.csv")
 
-CityData <- join(CityData, CountyData, by = "county_name")
+#CityData <- join(CityData, CountyData, by = "county_name")
 
 
 ## Dichotomizing Action Taken and Loan Type
@@ -117,12 +117,13 @@ X1 <- X1[!drop.vars]
 X1$log_income <- log(X1$applicant_income_000s)
 X1$log_amount <- log(X1$loan_amount_000s)
 
-# Dummy variable for anti-discrimination law present in Washington D.C.
+# Dummy variable for anti-discrimination law present from years 2010-2013
 
 X1$fair_law <- 0
-X1$fair_law[X1$state_abbr == "DC"] <- 1
-X1$fair_law[X1$state_abbr == "MD"] <- 1
-X1$fair_law[X1$county_name == "Alexandria city"] <- 1
+X1$fair_law[X1$as_of_year == "2010"] <- 1
+X1$fair_law[X1$as_of_year == "2011"] <- 1
+X1$fair_law[X1$as_of_year == "2012"] <- 1
+X1$fair_law[X1$as_of_year == "2013"] <- 1
 
 # Descriptive Stats
 
@@ -174,33 +175,33 @@ X1.sample <- X1[weighted, ] # Produces sample which has same couple proportions 
 
 # Main model
 couple.orig.dep <- glm(di_action ~ minority_population + tract_to_msamd_income + 
-                         Percent.Same.Sex + fair_law + log_income + log_amount +
+                         fair_law + log_income + log_amount +
                          di_loan + four_couple_name,
                        data = X1, family = "binomial")
 
 couple.int <- glm(di_action ~ minority_population + tract_to_msamd_income + 
-                    Percent.Same.Sex + fair_law + log_income + log_amount +
+                    fair_law + log_income + log_amount +
                     di_loan + four_couple_name + four_couple_name*fair_law,
                   data = X1, family = "binomial")
 
 more.couple.orig.dep <- glm(di_action ~ minority_population + tract_to_msamd_income + 
-                         Percent.Same.Sex + fair_law + log_income + log_amount +
-                         di_loan + couple_name,
-                       data = X1, family = "binomial")
+                              fair_law + log_income + log_amount +
+                              di_loan + couple_name,
+                            data = X1, family = "binomial")
 
 #pcse.couple <- pcse(couple.orig.dep, groupN = X1$county_name, groupT = X1$as_of_year)
 
-htmlreg(l = list(couple.orig.dep, couple.int, more.couple.orig.dep), file = "MainModelDC.doc", digits = 3)
+htmlreg(l = list(couple.orig.dep, couple.int, more.couple.orig.dep), file = "MainModelDE.doc", digits = 3)
 
 # Get coefficient for 'Other' category
 X1$four_couple_name <- as.factor(X1$four_couple_name)
 X1 <- within(X1, four_couple_name <- relevel(four_couple_name, ref = "Hetero Couple"))
 
 other.couple.int <- glm(di_action ~ minority_population + tract_to_msamd_income + 
-                    Percent.Same.Sex + fair_law + log_income + log_amount +
-                    di_loan + four_couple_name + four_couple_name*fair_law,
-                  data = X1, family = "binomial")
-summary(other.couple.int)
+                          fair_law + log_income + log_amount +
+                          di_loan + four_couple_name + four_couple_name*fair_law,
+                        data = X1, family = "binomial")
+
 
 X1$four_couple_name <- as.factor(X1$four_couple_name)
 X1 <- within(X1, four_couple_name <- relevel(four_couple_name, ref = "Other"))
@@ -216,7 +217,6 @@ X1 <- within(X1, four_couple_name <- relevel(four_couple_name, ref = "Other"))
 
 X.c.ss <- cbind(1, median(X1$minority_population, na.rm = TRUE), 
                 median(X1$tract_to_msamd_income, na.rm = TRUE), 
-                median(X1$Percent.Same.Sex, na.rm = TRUE), 
                 1, # Fair Law
                 median(X1$log_income, na.rm = TRUE), 
                 median(X1$log_amount, na.rm = TRUE), 
@@ -225,7 +225,6 @@ X.c.ss <- cbind(1, median(X1$minority_population, na.rm = TRUE),
 
 X.c.single <- cbind(1, median(X1$minority_population, na.rm = TRUE), 
                     median(X1$tract_to_msamd_income, na.rm = TRUE), 
-                    median(X1$Percent.Same.Sex, na.rm = TRUE), 
                     1, # Fair Law
                     median(X1$log_income, na.rm = TRUE), 
                     median(X1$log_amount, na.rm = TRUE), 
@@ -234,7 +233,6 @@ X.c.single <- cbind(1, median(X1$minority_population, na.rm = TRUE),
 
 X.c.hetero <- cbind(1, median(X1$minority_population, na.rm = TRUE), 
                     median(X1$tract_to_msamd_income, na.rm = TRUE), 
-                    median(X1$Percent.Same.Sex, na.rm = TRUE), 
                     1, # Fair Law
                     median(X1$log_income, na.rm = TRUE), 
                     median(X1$log_amount, na.rm = TRUE), 
@@ -242,13 +240,12 @@ X.c.hetero <- cbind(1, median(X1$minority_population, na.rm = TRUE),
                     1, 0, 0, 1, 0, 0) # Hetero, SS, Single
 
 X.c.other <- cbind(1, median(X1$minority_population, na.rm = TRUE), 
-                    median(X1$tract_to_msamd_income, na.rm = TRUE), 
-                    median(X1$Percent.Same.Sex, na.rm = TRUE), 
-                    1, # Fair Law
-                    median(X1$log_income, na.rm = TRUE), 
-                    median(X1$log_amount, na.rm = TRUE), 
-                    1, # Coventional vs. Gov-backed
-                    1, 0, 0, 1, 0, 0) # Other, SS, Single
+                   median(X1$tract_to_msamd_income, na.rm = TRUE), 
+                   1, # Fair Law
+                   median(X1$log_income, na.rm = TRUE), 
+                   median(X1$log_amount, na.rm = TRUE), 
+                   1, # Coventional vs. Gov-backed
+                   1, 0, 0, 1, 0, 0) # Other, SS, Single
 
 ss.prob <- plogis(X.c.ss%*%couple.int$coefficients)
 single.prob <- plogis(X.c.single%*%couple.int$coefficients)
@@ -301,7 +298,6 @@ opp.ss.fd.ci <- quantile(opp.ss.ci, c(.05, .95))
 
 X.c.ss.nofair <- cbind(1, median(X1$minority_population, na.rm = TRUE), 
                        median(X1$tract_to_msamd_income, na.rm = TRUE), 
-                       median(X1$Percent.Same.Sex, na.rm = TRUE), 
                        0, # Fair Law
                        median(X1$log_income, na.rm = TRUE), 
                        median(X1$log_amount, na.rm = TRUE), 
@@ -310,7 +306,6 @@ X.c.ss.nofair <- cbind(1, median(X1$minority_population, na.rm = TRUE),
 
 X.c.single.nofair <- cbind(1, median(X1$minority_population, na.rm = TRUE), 
                            median(X1$tract_to_msamd_income, na.rm = TRUE), 
-                           median(X1$Percent.Same.Sex, na.rm = TRUE), 
                            0, # Fair Law
                            median(X1$log_income, na.rm = TRUE), 
                            median(X1$log_amount, na.rm = TRUE), 
@@ -319,18 +314,19 @@ X.c.single.nofair <- cbind(1, median(X1$minority_population, na.rm = TRUE),
 
 X.c.hetero.nofair <- cbind(1, median(X1$minority_population, na.rm = TRUE), 
                            median(X1$tract_to_msamd_income, na.rm = TRUE), 
-                           median(X1$Percent.Same.Sex, na.rm = TRUE), 
                            0, # Fair Law
                            median(X1$log_income, na.rm = TRUE), 
                            median(X1$log_amount, na.rm = TRUE), 
                            1, # Coventional vs. Gov-backed
                            1, 0, 0, 0, 0, 0) # Hetero, SS, Single
 
+ss.nofair <- plogis(X.c.ss.nofair%*%couple.int$coefficients)
+
 # Opposite vs. Same Sex in No Fair Law Area
 nf.opp.ss.fd <- plogis(X.c.hetero.nofair%*%couple.int$coefficients)-
   plogis(X.c.ss.nofair%*%couple.int$coefficients)
-nf.opp.ss.ci <- nf.opp.ci <- nf.ss.ci <- numeric(1000)
 
+nf.opp.ss.ci <- nf.opp.ci <- nf.ss.ci <- numeric(1000)
 for(i in 1:1000) {
   nf.ss.ci[i] <- plogis(X.c.ss.nofair%*%beta.tilde[i,])
   nf.opp.ci[i] <- plogis(X.c.hetero.nofair%*%beta.tilde[i,])
@@ -364,29 +360,3 @@ for(i in 1:1000) {
 fair.diff <- quantile(ci.fd.fair, c(.05, .95))
 
 ### End of Useful Code ###
-
-
-
-
-
-
-# Checking model fit
-couple.predict <- ifelse(predict(couple.orig.dep, type = "response") >= .5, 1, 0)
-
-xtabs(~couple.predict + X1$di_action) # not good at predicting rejections at all
-
-theROC <- roc(couple.predict, X3$di_action)
-plot(theROC)
-
-XSS <- X2[X2$four_couple_name == "Same Sex Couple",]
-XHC <- X2[X2$four_couple_name == "Hetero Couple",]
-
-CrossTable(X2$four_couple_name, X2$di_action_name)
-CrossTable(XSS$di_loan_name, XSS$di_action_name)
-CrossTable(XHC$di_loan_name, XHC$di_action_name)
-
-### Maps ###
-
-DCarea <- get_map("Washington D.C.", zoom = 10, maptype = "roadmap")
-ggmap(DCarea)
-

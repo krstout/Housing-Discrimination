@@ -20,11 +20,11 @@ library(ggmap)
 library(pcse)
 
 #setwd("C://Users//Sheryl//Documents//Housing Segregation")
-setwd("C:\\Users\\Kevin\\Documents\\Housing Segregation")
+setwd("C://Users//Kevin//Documents//Housing Segregation")
 
-CityData <- read.csv("DC.csv")
+CityData <- read.csv("St.Louis.csv")
 
-CountyData <- read.csv("DCSameSexPopulation.csv")
+CountyData <- read.csv("STLSameSexPopulation.csv")
 
 CityData <- join(CityData, CountyData, by = "county_name")
 
@@ -117,12 +117,12 @@ X1 <- X1[!drop.vars]
 X1$log_income <- log(X1$applicant_income_000s)
 X1$log_amount <- log(X1$loan_amount_000s)
 
-# Dummy variable for anti-discrimination law present in Washington D.C.
+# Dummy variable for anti-discrimination law present in St. Louis
 
 X1$fair_law <- 0
-X1$fair_law[X1$state_abbr == "DC"] <- 1
-X1$fair_law[X1$state_abbr == "MD"] <- 1
-X1$fair_law[X1$county_name == "Alexandria city"] <- 1
+X1$fair_law[X1$state_abbr == "IL"] <- 1
+X1$fair_law[X1$county_name == "St. Louis city"] <- 1
+X1$fair_law[X1$county_name == "St. Louis County"] <- 1
 
 # Descriptive Stats
 
@@ -184,22 +184,22 @@ couple.int <- glm(di_action ~ minority_population + tract_to_msamd_income +
                   data = X1, family = "binomial")
 
 more.couple.orig.dep <- glm(di_action ~ minority_population + tract_to_msamd_income + 
-                         Percent.Same.Sex + fair_law + log_income + log_amount +
-                         di_loan + couple_name,
-                       data = X1, family = "binomial")
+                              Percent.Same.Sex + fair_law + log_income + log_amount +
+                              di_loan + couple_name,
+                            data = X1, family = "binomial")
 
 #pcse.couple <- pcse(couple.orig.dep, groupN = X1$county_name, groupT = X1$as_of_year)
 
-htmlreg(l = list(couple.orig.dep, couple.int, more.couple.orig.dep), file = "MainModelDC.doc", digits = 3)
+htmlreg(l = list(couple.orig.dep, couple.int, more.couple.orig.dep), file = "MainModelSTL.doc", digits = 3)
 
 # Get coefficient for 'Other' category
 X1$four_couple_name <- as.factor(X1$four_couple_name)
 X1 <- within(X1, four_couple_name <- relevel(four_couple_name, ref = "Hetero Couple"))
 
 other.couple.int <- glm(di_action ~ minority_population + tract_to_msamd_income + 
-                    Percent.Same.Sex + fair_law + log_income + log_amount +
-                    di_loan + four_couple_name + four_couple_name*fair_law,
-                  data = X1, family = "binomial")
+                          Percent.Same.Sex + fair_law + log_income + log_amount +
+                          di_loan + four_couple_name + four_couple_name*fair_law,
+                        data = X1, family = "binomial")
 summary(other.couple.int)
 
 X1$four_couple_name <- as.factor(X1$four_couple_name)
@@ -242,13 +242,13 @@ X.c.hetero <- cbind(1, median(X1$minority_population, na.rm = TRUE),
                     1, 0, 0, 1, 0, 0) # Hetero, SS, Single
 
 X.c.other <- cbind(1, median(X1$minority_population, na.rm = TRUE), 
-                    median(X1$tract_to_msamd_income, na.rm = TRUE), 
-                    median(X1$Percent.Same.Sex, na.rm = TRUE), 
-                    1, # Fair Law
-                    median(X1$log_income, na.rm = TRUE), 
-                    median(X1$log_amount, na.rm = TRUE), 
-                    1, # Coventional vs. Gov-backed
-                    1, 0, 0, 1, 0, 0) # Other, SS, Single
+                   median(X1$tract_to_msamd_income, na.rm = TRUE), 
+                   median(X1$Percent.Same.Sex, na.rm = TRUE), 
+                   1, # Fair Law
+                   median(X1$log_income, na.rm = TRUE), 
+                   median(X1$log_amount, na.rm = TRUE), 
+                   1, # Coventional vs. Gov-backed
+                   1, 0, 0, 1, 0, 0) # Other, SS, Single
 
 ss.prob <- plogis(X.c.ss%*%couple.int$coefficients)
 single.prob <- plogis(X.c.single%*%couple.int$coefficients)
@@ -389,4 +389,3 @@ CrossTable(XHC$di_loan_name, XHC$di_action_name)
 
 DCarea <- get_map("Washington D.C.", zoom = 10, maptype = "roadmap")
 ggmap(DCarea)
-
